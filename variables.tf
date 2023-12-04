@@ -25,7 +25,7 @@ variable "admin_password" {
 variable "vm_size" {
   description = "The size of the virtual machine."
   type        = string
-  default     = "Standard_B2ms"
+  default     = "Standard_D2as_v5"
 }
 
 variable "address_space_vnet01" {
