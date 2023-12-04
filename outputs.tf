@@ -29,12 +29,12 @@ output "machine02_nic_id" {
 }
 
 output "machine01_vm_id" {
-  value       = azurerm_virtual_machine.machine01.id
+  value       = azurerm_windows_virtual_machine.machine01.id
   description = "The ID of virtual machine Machine01."
 }
 
 output "machine02_vm_id" {
-  value       = azurerm_virtual_machine.machine02.id
+  value       = azurerm_windows_virtual_machine.machine02.id
   description = "The ID of virtual machine Machine02."
 }
 

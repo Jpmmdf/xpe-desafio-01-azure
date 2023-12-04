@@ -25,23 +25,23 @@ variable "admin_password" {
 variable "vm_size" {
   description = "The size of the virtual machine."
   type        = string
-  default     = "Standard_B1s"
+  default     = "Standard_B2ms"
 }
 
 variable "address_space_vnet01" {
   description = "The address space for VNET01."
   type        = list(string)
-  default     = ["10.0.0.0/24"]
+  default     = ["10.0.0.0/20"]
 }
 
 variable "address_space_vnet02" {
   description = "The address space for VNET02."
   type        = list(string)
-  default     = ["10.1.0.0/24"]
+  default     = ["10.1.0.0/20"]
 }
 
 variable "managed_disk_size_gb" {
   description = "The size of the managed disk in GB."
   type        = number
-  default     = 32  # Reduzido para o tamanho mínimo recomendado
+  default     = 32
 }

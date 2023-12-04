@@ -4,6 +4,15 @@ resource "azurerm_resource_group" "lab_xp" {
   location = var.location_us
 }
 
+resource "random_id" "random_id" {
+  keepers = {
+    # Gere um novo ID a cada mudança de grupo de recursos
+    resource_group = azurerm_resource_group.lab_xp.name
+  }
+
+  byte_length = 8
+}
+
 # Create a virtual network in US East
 resource "azurerm_virtual_network" "vnet01" {
   name                = "VNET01"
@@ -57,6 +66,17 @@ resource "azurerm_network_security_group" "machine01_nsg" {
   name                = "machine01-nsg"
   location            = var.location_us
   resource_group_name = azurerm_resource_group.lab_xp.name
+  security_rule {
+    name                       = "RDPAccess"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3389"
+    source_address_prefix      = "*"  # Ajuste conforme necessário para restringir o acesso
+    destination_address_prefix = "*"
+  }
 }
 
 # Create network security group for machine02
@@ -64,6 +84,17 @@ resource "azurerm_network_security_group" "machine02_nsg" {
   name                = "machine02-nsg"
   location            = var.location_brazil
   resource_group_name = azurerm_resource_group.lab_xp.name
+  security_rule {
+    name                       = "RDPAccess"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3389"
+    source_address_prefix      = "*"  # Ajuste conforme necessário para restringir o acesso
+    destination_address_prefix = "*"
+  }
 }
 
 # Create network interface for machine01
@@ -94,56 +125,61 @@ resource "azurerm_network_interface" "machine02_nic" {
   }
 }
 
-# Create virtual machine machine01
-resource "azurerm_virtual_machine" "machine01" {
-  name                  = "machine01"
-  location              = var.location_us
-  resource_group_name   = azurerm_resource_group.lab_xp.name
+# Create Windows virtual machine machine01
+resource "azurerm_windows_virtual_machine" "machine01" {
+  name                = "machine01"
+  resource_group_name = azurerm_resource_group.lab_xp.name
+  location            = var.location_us
+  size                = var.vm_size
+  admin_username      = var.admin_username
+  admin_password      = var.admin_password
   network_interface_ids = [azurerm_network_interface.machine01_nic.id]
-  vm_size               = var.vm_size
 
-  storage_os_disk {
-    name              = "machine01_osdisk"
-    caching           = "ReadWrite"
-    create_option     = "FromImage"
-    managed_disk_type = "Standard_LRS"
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
   }
 
-  os_profile {
-    computer_name  = "machine01"
-    admin_username = var.admin_username
-    admin_password = var.admin_password
+   source_image_reference {
+    publisher = "MicrosoftWindowsDesktop"
+    offer     = "windows-11"
+    sku       = "win11-21h2-pro"
+    version   = "latest"
   }
 
-  os_profile_linux_config {
-    disable_password_authentication = false
-  }
+   # Configuração de Spot
+  priority = "Spot"
+  eviction_policy = "Deallocate"
+  max_bid_price = -1  # -1 significa que você está disposto a pagar até o preço padrão da VM
+
 }
 
-# Create virtual machine machine02
-resource "azurerm_virtual_machine" "machine02" {
-  name                  = "machine02"
-  location              = var.location_brazil
-  resource_group_name   = azurerm_resource_group.lab_xp.name
+# Create Windows virtual machine machine02
+resource "azurerm_windows_virtual_machine" "machine02" {
+  name                = "machine02"
+  resource_group_name = azurerm_resource_group.lab_xp.name
+  location            = var.location_brazil
+  size                = var.vm_size
+  admin_username      = var.admin_username
+  admin_password      = var.admin_password
   network_interface_ids = [azurerm_network_interface.machine02_nic.id]
-  vm_size               = var.vm_size
 
-  storage_os_disk {
-    name              = "machine02_osdisk"
-    caching           = "ReadWrite"
-    create_option     = "FromImage"
-    managed_disk_type = "Standard_LRS"
+  os_disk {
+    caching              = "ReadWrite"
+    storage_account_type = "Standard_LRS"
+  }
+  source_image_reference {
+    publisher = "MicrosoftWindowsDesktop"
+    offer     = "windows-11"
+    sku       = "win11-21h2-pro"
+    version   = "latest"
   }
 
-  os_profile {
-    computer_name  = "machine02"
-    admin_username = var.admin_username
-    admin_password = var.admin_password
-  }
+   # Configuração de Spot
+  priority = "Spot"
+  eviction_policy = "Deallocate"
+  max_bid_price = -1  # -1 significa que você está disposto a pagar até o preço padrão da VM
 
-  os_profile_linux_config {
-    disable_password_authentication = false
-  }
 }
 
 # Create managed disk for machine01
@@ -169,7 +205,7 @@ resource "azurerm_managed_disk" "machine02_disk1" {
 # Attach managed disk to virtual machine machine01
 resource "azurerm_virtual_machine_data_disk_attachment" "machine01_disk_attachment" {
   managed_disk_id    = azurerm_managed_disk.machine01_disk1.id
-  virtual_machine_id = azurerm_virtual_machine.machine01.id
+  virtual_machine_id = azurerm_windows_virtual_machine.machine01.id
   lun                = 0
   caching            = "ReadWrite"
 }
@@ -177,9 +213,30 @@ resource "azurerm_virtual_machine_data_disk_attachment" "machine01_disk_attachme
 # Attach managed disk to virtual machine machine02
 resource "azurerm_virtual_machine_data_disk_attachment" "machine02_disk_attachment" {
   managed_disk_id    = azurerm_managed_disk.machine02_disk1.id
-  virtual_machine_id = azurerm_virtual_machine.machine02.id
+  virtual_machine_id = azurerm_windows_virtual_machine.machine02.id
   lun                = 0
   caching            = "ReadWrite"
+}
+
+# Connect the security group to the network interface for machine01
+resource "azurerm_network_interface_security_group_association" "machine01_nsg_association" {
+  network_interface_id      = azurerm_network_interface.machine01_nic.id
+  network_security_group_id = azurerm_network_security_group.machine01_nsg.id
+}
+
+# Connect the security group to the network interface for machine02
+resource "azurerm_network_interface_security_group_association" "machine02_nsg_association" {
+  network_interface_id      = azurerm_network_interface.machine02_nic.id
+  network_security_group_id = azurerm_network_security_group.machine02_nsg.id
+}
+
+# Create storage account for boot diagnostics
+resource "azurerm_storage_account" "my_storage_account" {
+  name                     = "diag${random_id.random_id.hex}"
+  location                 = var.location_us
+  resource_group_name      = azurerm_resource_group.lab_xp.name
+  account_tier             = "Standard"
+  account_replication_type = "LRS"
 }
 
 # Peering from VNET01 to VNET02
